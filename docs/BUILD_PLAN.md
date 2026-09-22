@@ -2,7 +2,7 @@
 
 **How to use this plan**
 - Do the phases **in order**. Each phase ends with **one commit + push**. Stop after each phase, check that it works, then move on.
-- Each phase has a **Concept** (what to understand first), **Tasks**, and **Done when** (tests that must pass before you commit).
+- Each phase has a **Concept** (what to understand first), **Tasks**, and **Done when** (tests that must pass before committing).
 - ⚠️ = critical. Don't skip it.
 - Rough time: **4–6 weeks part-time.** A 1–2 week estimate is too optimistic for this full scope.
 
@@ -60,7 +60,7 @@ methodsplit/
 **Concept:** Go modules, Makefiles, what CI is.
 
 Tasks
-- [ ] `go mod init github.com/<you>/methodsplit` (Go 1.22+, which gives `net/http` method-aware routing)
+- [ ] `go mod init github.com/<username>/methodsplit` (Go 1.22+, which gives `net/http` method-aware routing)
 - [ ] Create the folder structure above (empty `main.go` files that just start)
 - [ ] `Makefile` targets: `up`, `down`, `logs`, `test`, `itest`, `lint`, `loadtest`, `seed`
 - [ ] `.gitignore` (include `.env`, `logs/`, `*.jsonl`), `.env.example`, MIT `LICENSE`
@@ -87,7 +87,7 @@ Tasks
 - [ ] Status transitions guarded (invalid transition → `409`)
 - [ ] Unit tests for handlers and the store
 
-**Done when:** you can create → execute → refund with curl, and sending the same `Idempotency-Key` twice creates **one** payment.
+**Done when:** create → execute → refund works with curl, and sending the same `Idempotency-Key` twice creates **one** payment.
 **Commit:** `feat(payments): payment API with transactional idempotency on Postgres primary`
 
 ---
@@ -158,7 +158,7 @@ Tasks
 - [ ] `configs/gateway.loadtest.yaml` with a higher per-IP limit
 - [ ] Integration tests against real Redis (CI service container)
 
-**Done when:** you get `429` exactly when the limit is crossed, and stopping Redis makes GETs still work and POSTs return `503`.
+**Done when:** `429` is returned exactly when the limit is crossed, and stopping Redis makes GETs still work and POSTs return `503`.
 **Commit:** `feat(ratelimit): Redis sliding-window limits with explicit failure policy`
 
 ---
@@ -174,7 +174,7 @@ Tasks
 - [ ] 5xx or timeout → delete the record; PROCESSING TTL 30s; COMPLETED TTL 24h
 - [ ] **Integration test E3:** 100 goroutines send the same POST at once
 
-**Done when:** ⚠️ E3 creates **exactly one** payment row every time you run it (run it 10 times).
+**Done when:** ⚠️ E3 creates **exactly one** payment row on every run (10 runs).
 **Commit:** `feat(idempotency): Redis idempotency layer with conflict and mismatch handling`
 
 ---
@@ -223,7 +223,7 @@ Tasks
 **Done when:** every number in the README has a matching row in `RESULTS.md`.
 **Commit:** `test(load): k6 experiments E1-E5 and results report`
 
-> ✅ **Checkpoint:** after Phase 9 you have a complete, strong backend/DevOps project. Everything after this is the ML layer.
+> ✅ **Checkpoint:** after Phase 9 the project is a complete, strong backend/DevOps project. Everything after this is the ML layer.
 
 ---
 

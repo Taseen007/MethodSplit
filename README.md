@@ -62,7 +62,7 @@ Full design and every decision: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
 Optional: Python 3.10+ (to retrain the model) and k6 (to run load tests).
 
 ```bash
-git clone https://github.com/<you>/methodsplit.git
+git clone https://github.com/<username>/methodsplit.git
 cd methodsplit
 cp .env.example .env
 make up        # starts gateway, backends, Postgres primary+replica, Redis, Prometheus, Grafana
@@ -75,7 +75,7 @@ make seed      # creates demo merchants
 
 ## Making requests
 
-Every request must be signed with HMAC. The included CLI does the signing for you:
+Every request must be signed with HMAC. The included CLI handles the signing automatically:
 
 ```bash
 # Create a payment (500.00 BDT = 50000 poisha)

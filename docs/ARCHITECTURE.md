@@ -32,7 +32,7 @@
 |---|---|
 | Nginx / Envoy / Express examples | The gateway is built from scratch in Go. The examples were only illustrations. |
 | Rust and Node.js options | One language keeps the project focused. |
-| Separate "Read LB" and "Write LB" | The gateway does its own round-robin load balancing. That's simpler, and it's code you wrote. |
+| Separate "Read LB" and "Write LB" | The gateway does its own round-robin load balancing. That's simpler, and keeps the logic in project code instead of a third-party component. |
 | Many different microservices | One `payments-api` codebase runs in two modes (`read` and `write`). |
 | Separate subdomains (`read.`, `tx.`) | One entry point, with routing by **method + path**. |
 | JWT | Merchants are servers, so HMAC API-key signing is enough and more realistic for payments. |
@@ -46,7 +46,7 @@
 
 **Kept (all free, run locally):** Go, PostgreSQL, Redis, Docker (Compose), Prometheus, Grafana OSS, k6, Python with scikit-learn, and GitHub with free Actions for public repos.
 
-> Note: Redis changed its license in 2024. It is still free to use for this project. If you want a fully open-source drop-in replacement, **Valkey** works with the same client code.
+> Note: Redis changed its license in 2024. It is still free to use for this project. For a fully open-source drop-in replacement, **Valkey** works with the same client code.
 
 ---
 
@@ -151,7 +151,7 @@ routes:
 1. After any **successful write** by merchant M, set `ryw:{M}` in Redis with a 5-second TTL.
 2. While that key exists, M's `eventual` reads go to the **write pool** instead of the replica.
 
-The 5-second window must be **larger than the replication lag you actually measure** (see experiment E4). Record the measured lag in `RESULTS.md`.
+The 5-second window must be **larger than the measured replication lag** (see experiment E4). Record the measured lag in `RESULTS.md`.
 
 ### 5.4 Load balancing and health checks
 
@@ -192,7 +192,7 @@ Rules:
 - On success, the gateway **removes** any client-sent `X-Merchant-ID` and sets its own.
 - Count failed signatures per `X-Api-Key`. This count is one of the ML features.
 
-Because signing by hand is painful, the repo includes `cmd/msclient`, a small CLI that signs requests for you.
+Because signing by hand is painful, the repo includes `cmd/msclient`, a small CLI that signs requests automatically.
 
 ---
 
@@ -348,7 +348,7 @@ Bucket keys expire after 70 seconds. Features are read **before** scoring and up
   - **Attack profiles:** burst flood, low-and-slow bot, ID enumeration, credential stuffing, retry storm.
 - **Each profile uses its own API keys**, so labels come from the key → profile mapping. No manual labeling is needed.
 - The gateway writes one line per request to `logs/features.jsonl` containing the timestamp, request_id, api_key, route, the 6 features, and the status.
-- ⚠️ **Train and test use different random seeds and different attack intensities.** Otherwise the model just memorizes your simulator.
+- ⚠️ **Train and test use different random seeds and different attack intensities.** Otherwise the model just memorizes the simulator.
 - Be honest in the README: **the data is synthetic.**
 
 ### 12.4 Training and export (Python, offline)
@@ -427,7 +427,7 @@ Grafana OSS is set up automatically (a data source plus one dashboard JSON commi
 
 ---
 
-## 15. Experiments (the numbers for your resume)
+## 15. Experiments (the numbers for the results report)
 
 Every experiment records the laptop specs, versions, exact command, and raw k6 output in `docs/RESULTS.md`. Containers get CPU limits (`cpus:` in Compose) so the results are repeatable.
 
@@ -446,7 +446,7 @@ Every experiment records the laptop specs, versions, exact command, and raw k6 o
 
 | Level | How | Cost |
 |---|---|---|
-| 1 (main) | `make up` on your laptop with Docker Compose | Free |
+| 1 (main) | `make up` on a local machine with Docker Compose | Free |
 | 2 | Demo GIF or video, Grafana screenshots, `RESULTS.md` in the repo | Free |
 | 3 | **GitHub Codespaces** with a `.devcontainer`: run `make up` and share port 8080 temporarily for a live demo | Free within the personal monthly allowance (check the current limit) |
 | 4 (optional) | Oracle Cloud "Always Free" VM running the same Compose file | Free, but signup asks for a card for verification. Skip it if that's a problem. |
