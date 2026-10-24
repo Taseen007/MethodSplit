@@ -1,0 +1,27 @@
+{
+  "name": "MethodSplit",
+  "image": "mcr.microsoft.com/devcontainers/go:1-1.25-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.12"
+    }
+  },
+  "forwardPorts": [8080, 3000, 9090, 5432, 5433],
+  "portsAttributes": {
+    "8080": { "label": "Gateway", "onAutoForward": "notify" },
+    "3000": { "label": "Grafana", "onAutoForward": "silent" },
+    "9090": { "label": "Prometheus", "onAutoForward": "silent" },
+    "5432": { "label": "Postgres primary", "onAutoForward": "silent" },
+    "5433": { "label": "Postgres replica", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "cp -n .env.example .env || true",
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go", "ms-azuretools.vscode-docker", "ms-python.python"]
+    }
+  },
+  "remoteUser": "vscode"
+}
