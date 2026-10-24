@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: methodsplit
+          POSTGRES_PASSWORD: methodsplit_dev_password
+          POSTGRES_DB: methodsplit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U methodsplit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "The following files are not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run migrations
+        run: |
+          psql "postgres://methodsplit:methodsplit_dev_password@localhost:5432/methodsplit?sslmode=disable" -f migrations/001_init.sql
+        env:
+          PGPASSWORD: methodsplit_dev_password
+
+      - name: Unit tests
+        run: go test ./... -short
+
+      - name: Integration tests
+        run: go test ./tests/integration/... -v
+        env:
+          PG_PRIMARY_DSN: postgres://methodsplit:methodsplit_dev_password@localhost:5432/methodsplit?sslmode=disable
+          PG_REPLICA_DSN: postgres://methodsplit:methodsplit_dev_password@localhost:5432/methodsplit?sslmode=disable
+          REDIS_ADDR: localhost:6379
