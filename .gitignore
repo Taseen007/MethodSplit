@@ -1,0 +1,30 @@
+# Environment
+.env
+
+# Go
+/bin/
+*.exe
+*.test
+*.out
+
+# Logs and generated data
+logs/
+*.jsonl
+
+# ML: generated data/artifacts (regenerate with cmd/simulator + ml/*.py)
+ml/.venv/
+__pycache__/
+*.pyc
+ml/data/*.yaml
+ml/data/labels_*.json
+ml/data/sim_merchants_*.yaml
+ml/models/
+ml/results.json
+ml/testdata/golden.json
+models/*.json
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
