@@ -1,0 +1,168 @@
+services:
+  pg-primary:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=replica"
+      - "-c"
+      - "max_wal_senders=5"
+      - "-c"
+      - "max_replication_slots=5"
+      - "-c"
+      - "hot_standby=on"
+    volumes:
+      - pg-primary-data:/var/lib/postgresql/data
+      - ./postgres/primary/init-replication.sh:/docker-entrypoint-initdb.d/10-init-replication.sh:ro
+      - ../migrations/001_init.sql:/docker-entrypoint-initdb.d/20-schema.sql:ro
+    ports:
+      - "5432:5432" # dev only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    cpus: "1.0"
+    mem_limit: "512m"
+
+  pg-replica:
+    build:
+      context: ./postgres/replica
+    depends_on:
+      pg-primary:
+        condition: service_healthy
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      PRIMARY_HOST: pg-primary
+      REPLICATOR_USER: replicator
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD}
+    volumes:
+      - pg-replica-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432" # dev only
+    cpus: "1.0"
+    mem_limit: "512m"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379" # dev only
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    cpus: "0.5"
+    mem_limit: "256m"
+
+  payments-write-1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: payments-api
+    environment:
+      MODE: write
+      ADDR: ":9000"
+      DATABASE_URL: ${PG_PRIMARY_DSN}
+    depends_on:
+      pg-primary:
+        condition: service_healthy
+    expose:
+      - "9000"
+    cpus: "1.0"
+    mem_limit: "256m"
+
+  payments-read-1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: payments-api
+    environment:
+      MODE: read
+      ADDR: ":9000"
+      DATABASE_URL: ${PG_REPLICA_DSN}
+    depends_on:
+      - pg-replica
+    expose:
+      - "9000"
+    cpus: "1.0"
+    mem_limit: "256m"
+
+  payments-read-2:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: payments-api
+    environment:
+      MODE: read
+      ADDR: ":9000"
+      DATABASE_URL: ${PG_REPLICA_DSN}
+    depends_on:
+      - pg-replica
+    expose:
+      - "9000"
+    cpus: "1.0"
+    mem_limit: "256m"
+
+  gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        SERVICE: gateway
+    environment:
+      GATEWAY_ADDR: ${GATEWAY_ADDR}
+      GATEWAY_CONFIG: ${GATEWAY_CONFIG}
+      MERCHANTS_CONFIG: ${MERCHANTS_CONFIG}
+      REDIS_ADDR: redis:6379
+      ML_FEATURES_LOG: /app/logs/features.jsonl
+    volumes:
+      - ../configs:/app/configs:ro
+      - ../models:/app/models:ro
+      - ../ml/data:/app/ml/data:ro
+      - ../logs:/app/logs
+    depends_on:
+      - redis
+      - payments-write-1
+      - payments-read-1
+      - payments-read-2
+    ports:
+      - "8080:8080"
+    cpus: "2.0"
+    mem_limit: "512m"
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - gateway
+
+  grafana:
+    image: grafana/grafana-oss:11.2.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  pg-primary-data:
+  pg-replica-data:
