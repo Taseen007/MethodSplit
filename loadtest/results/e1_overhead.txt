@@ -1,0 +1,4 @@
+=== E1: Gateway overhead (GET /v1/balance) ===
+direct (backend only):   p50=1.76ms p95=2.31ms p99=2.68ms avg=1.98ms
+gateway (full pipeline): p50=4.26ms p95=6.92ms p99=13.07ms avg=4.86ms
+overhead (p95 gateway - p95 direct) = 4.61ms

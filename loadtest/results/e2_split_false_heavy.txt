@@ -1,0 +1,4 @@
+=== E2: split_enabled workload (GET flood + steady POSTs) ===
+POST p50=9.38ms p95=31.70ms p99=59.36ms avg=12.55ms
+POST error rate = 0.00%
+GET error rate = 0.00%

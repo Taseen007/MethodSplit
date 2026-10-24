@@ -1,0 +1,8 @@
+DEBUG stale#1 iter=133 id=ed8ce032-5798-47ed-8672-05745ec7459f pool=[X-Methodsplit-Pool: write]
+DEBUG stale#2 iter=134 id=05842ac1-7f89-4bf5-8a1f-a3b1031e96c0 pool=[X-Methodsplit-Pool: write]
+DEBUG stale#3 iter=135 id=f70fc0bb-db3a-48c8-9595-55b71b5eddab pool=[X-Methodsplit-Pool: write]
+=== E4: read-your-writes stale-read count ===
+N=200
+stale_with_ryw=3
+stale_without_ryw=3
+max_observed_replica_lag_seconds=0
