@@ -1,0 +1,61 @@
+# E2 baseline: identical to gateway.loadtest.yaml except split_enabled is
+# false, so every request (reads included) goes to the write pool.
+split_enabled: false
+
+pools:
+  read:
+    targets:
+      - http://payments-read-1:9000
+      - http://payments-read-2:9000
+  write:
+    targets:
+      - http://payments-write-1:9000
+
+routes:
+  - method: POST
+    path: /v1/payments
+    class: write
+    idempotency: required
+  - method: POST
+    path: /v1/payments/{id}/execute
+    class: write
+    idempotency: required
+  - method: POST
+    path: /v1/payments/{id}/refund
+    class: write
+    idempotency: required
+  - method: GET
+    path: /v1/payments/{id}
+    class: read
+    consistency: strong
+  - method: GET
+    path: /v1/payments
+    class: read
+    consistency: eventual
+    cache_ttl: 10s
+  - method: GET
+    path: /v1/balance
+    class: read
+    consistency: eventual
+
+rate_limits:
+  per_ip_per_min: 1000000
+  per_merchant_read_per_min: 1000000
+  per_merchant_write_per_min: 1000000
+
+read_your_writes:
+  ttl: 5s
+
+timeouts:
+  upstream: 5s
+
+health_check:
+  path: /healthz
+  interval: 5s
+  timeout: 1s
+  unhealthy_after: 2
+  healthy_after: 2
+
+ml:
+  mode: off
+  model_path: /app/models/iforest-v1.json
