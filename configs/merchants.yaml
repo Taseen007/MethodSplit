@@ -1,0 +1,8 @@
+# Demo merchants only. Never put real secrets in this file — it is committed to the repo.
+merchants:
+  - merchant_id: merchant_demo_a
+    api_key: mk_demo_a
+    secret: sk_demo_a_do_not_use_in_prod
+  - merchant_id: merchant_demo_b
+    api_key: mk_demo_b
+    secret: sk_demo_b_do_not_use_in_prod
