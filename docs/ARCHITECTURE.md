@@ -157,7 +157,7 @@ The 5-second window must be **larger than the measured replication lag** (see ex
 
 - **Round-robin** across the *healthy* targets in a pool.
 - **Active health checks:** `GET /healthz` every 5s with a 1s timeout. Two failures mark a target down; two successes mark it up again.
-- The read-mode `/healthz` also reports **replica lag**. If the lag is above 10s, the instance reports unhealthy, so reads fall back to the write pool.
+- The read-mode `/healthz` also reports **replica lag**, measured as `now() - pg_last_xact_replay_timestamp()`, but only when there is real unapplied WAL backlog (`pg_last_wal_receive_lsn() != pg_last_wal_replay_lsn()`); a fully caught-up replica reports 0 lag even during an idle period with no recent writes. If the lag is above 10s, the instance reports unhealthy, so reads fall back to the write pool.
 - If the **whole read pool** is down, reads fall back to the write pool, which is slower but correct.
 - If the **write pool** is down, writes return `503`.
 
@@ -270,6 +270,8 @@ cache:{merchant}:v{version}:{sha256(method + path + query)}
 | Write pool down | `503` for writes; `strong` reads also fail; `eventual` reads still work | This is the fault isolation the project exists to show |
 | Upstream timeout on a write | Return `504`; delete the idempotency record; **no retry** | The client retries safely with the same key |
 
+⚠️ **Fail-open only works if it's fast.** The Redis client is configured with a short `DialTimeout`/`ReadTimeout`/`WriteTimeout`/`PoolTimeout` (200ms) and `DialerRetries: 1`. go-redis's defaults (a several-second read timeout, plus the connection pool retrying a failed dial up to 5 times with backoff *underneath* the client-level retry setting) compound across the several sequential Redis calls one request can make — measured as 120s+ per request with the library defaults during a Redis outage, which defeats "fail open" entirely. With the short timeouts, a full Redis outage degrades a read request to about 1.2s instead.
+
 ---
 
 ## 11. Data model
@@ -305,7 +307,7 @@ CREATE TABLE idempotency_records (
 
 - ⚠️ **Store money as integers** (`amount_minor`), never as floats.
 - Status changes run in a transaction with `SELECT ... FOR UPDATE`. The allowed transitions are `CREATED → COMPLETED` and `COMPLETED → REFUNDED`; anything else returns `409`.
-- Balance = sum of `COMPLETED` payments minus sum of `REFUNDED` payments.
+- Balance = sum of payments currently in `COMPLETED` status. The `payments` row holds current status, not a transition history, so a refunded payment's status is `REFUNDED`, not `COMPLETED` — it already falls out of the sum on its own; there is no separate term to subtract for it.
 
 **Replication setup** (official `postgres` image, no paid images):
 - The primary uses `wal_level=replica`, has a `replicator` role, and a `pg_hba.conf` line allowing replication from the Docker network.
@@ -415,15 +417,15 @@ Grafana OSS is set up automatically (a data source plus one dashboard JSON commi
 
 ## 14. Security checklist
 
-- [ ] Backend containers are not exposed to the host network.
-- [ ] Client-sent `X-Merchant-ID` is removed; the gateway sets its own.
-- [ ] `X-Forwarded-For` is **overwritten**, not appended to. The gateway is the edge, so it doesn't trust client values.
-- [ ] Body size limit (1 MB) is enforced before reading the body.
-- [ ] HMAC is compared in constant time, with the 300s timestamp window.
-- [ ] No secrets or signatures appear in logs.
-- [ ] Every `http.Server` and client timeout is set.
-- [ ] Cache keys always include the merchant ID.
-- [ ] Only demo secrets are in the repo; `.env` is in `.gitignore`.
+- [x] Backend containers are not exposed to the host network. (`deploy/docker-compose.yml`: `payments-read-1/2` and `payments-write-1` publish no host ports.)
+- [x] Client-sent `X-Merchant-ID` is removed; the gateway sets its own. (`internal/gateway/gateway.go:204-205`.)
+- [x] `X-Forwarded-For` is **overwritten**, not appended to. The gateway is the edge, so it doesn't trust client values. (`internal/gateway/gateway.go:235`.)
+- [x] Body size limit (1 MB) is enforced before reading the body. (`internal/gateway/gateway.go:26`, `maxBodyBytes`.)
+- [x] HMAC is compared in constant time, with the 300s timestamp window. (`internal/middleware/hmac.go:29-33` uses `hmac.Equal`; `internal/gateway/gateway.go:30,270` enforces `authTimestampWindow = 300s`.)
+- [x] No secrets or signatures appear in logs. (Verified: no `slog` call references a secret or signature field.)
+- [x] Every `http.Server` and client timeout is set. (`cmd/gateway/main.go:106-109`, `cmd/payments-api/main.go:53-56`.)
+- [x] Cache keys always include the merchant ID. (`internal/redisx/cache.go:48`: `cache:%s:v%d:%s` keyed by `merchantID`.)
+- [x] Only demo secrets are in the repo; `.env` is in `.gitignore`. (`configs/merchants.yaml` demo keys only; `.env` ignored, `.env.example` is the template.)
 
 ---
 
